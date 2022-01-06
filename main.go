@@ -1,18 +1,18 @@
 package proxychecker
 
 import (
-	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
 
-	"golang.org/x/net/proxy"
 	"golang.org/x/xerrors"
+	"h12.io/socks"
 )
 
 var (
 	Method string = http.MethodGet
-	Target string = "https://httpbin.org/status/200"
+	Target string = "https://api.myip.com/"
 )
 
 type Type int
@@ -22,13 +22,15 @@ const (
 	TypeSOCKS5
 )
 
-func Check(ctx context.Context, proxyAddr string, proxyType Type) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, Method, Target, nil)
+var client *http.Client
+
+func Check(proxyAddr string, proxyType Type) (bool, error) {
+	req, err := http.NewRequest(Method, Target, nil)
 	if err != nil {
 		return false, xerrors.Errorf("failed to create request: %w", err)
 	}
 
-	var client *http.Client
+	var transport *http.Transport
 
 	switch proxyType {
 	default:
@@ -38,23 +40,26 @@ func Check(ctx context.Context, proxyAddr string, proxyType Type) (bool, error) 
 			return false, xerrors.Errorf("failed to parse URL: %w", err)
 		}
 
-		client = &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyURL(proxyURL),
-			},
+		transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
 		}
 
 	case TypeSOCKS5:
-		p, err := proxy.SOCKS5("tcp", proxyAddr, nil, proxy.Direct)
-		if err != nil {
-			return false, xerrors.Errorf("failed to initialize proxy: %w", err)
+		p := socks.Dial(fmt.Sprintf("socks5://%s", proxyAddr))
+		transport = &http.Transport{
+			Dial: p,
 		}
+	}
 
-		client = &http.Client{
-			Transport: &http.Transport{
-				Dial: p.Dial,
-			},
-		}
+	transport.DisableKeepAlives = true
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	req.Header.Add("Connection", "close")
+
+	client = &http.Client{
+		Transport: transport,
 	}
 
 	res, err := client.Do(req)
