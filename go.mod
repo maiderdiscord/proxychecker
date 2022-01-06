@@ -4,6 +4,4 @@ go 1.17
 
 require golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 
-require golang.org/x/net v0.0.0-20220105145211-5b0dc2dfae98
-
-require h12.io/socks v1.0.3 // indirect
+require h12.io/socks v1.0.3
