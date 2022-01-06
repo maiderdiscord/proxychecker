@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"golang.org/x/xerrors"
 	"h12.io/socks"
@@ -59,6 +60,7 @@ func Check(proxyAddr string, proxyType Type) (bool, error) {
 	req.Header.Add("Connection", "close")
 
 	client = &http.Client{
+		Timeout:   time.Second * 20,
 		Transport: transport,
 	}
 
